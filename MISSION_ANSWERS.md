@@ -340,6 +340,34 @@ Kết quả chạy `python check_production_ready.py` (đầy đủ với Redis 
 
 ---
 
+## Part 3: Cloud Deployment
+
+### Exercise 3.1 & 3.2: Deploy Agent Part 6 lên Render
+
+- **Nền tảng chính:** Render (`Web Service` với `Docker` + `Key Value / Redis` nội bộ).
+- **Public URL:** `https://day14-production-agent-7rjo.onrender.com`
+- **Screenshots:** `screenshots/dashboard.png`, `screenshots/running.png`, `screenshots/test.png` (xem chi tiết tại [DEPLOYMENT.md](DEPLOYMENT.md)).
+- **Kết quả tự kiểm tra trên URL public:**
+  ```text
+  GET  /health              → HTTP/2 200  {"status":"ok","environment":"production"}
+  GET  /ready               → HTTP/2 200  {"status":"ready"}
+  POST /ask (no X-API-Key)  → HTTP/2 401  {"detail":"Invalid or missing API key"}
+  ```
+
+**So sánh `railway.toml` với `render.yaml`:**
+- **Định dạng & phạm vi:** `railway.toml` dùng định dạng TOML để cấu hình build/deploy cho **một service** (`[build] builder = "DOCKERFILE"`, `[deploy] healthcheckPath = "/health"`), còn các biến môi trường và Redis thường cấu hình qua Railway Dashboard hoặc CLI (`railway variables set`). Trong khi đó, `render.yaml` dùng định dạng YAML theo mô hình **Blueprint (Infrastructure as Code)**, khai báo được danh sách nhiều `services:` cùng lúc (`type: web`, `runtime: docker`, `healthCheckPath: /health`) và khai báo rõ từng `envVars` ngay trong file (hỗ trợ `generateValue: true` để tự sinh secret hoặc `sync: false` để nhập tay trên dashboard mà không commit secret vào Git).
+- **Vì sao khác nhau:** Railway ưu tiên trải nghiệm CLI/UI linh hoạt cho từng service rời, còn Render Blueprint hướng tới việc mô tả toàn bộ hạ tầng + biến môi trường một cách khai báo (declarative) trong 1 file để tái tạo nhanh từ GitHub.
+
+### Exercise 3.3: GCP Cloud Run CI/CD Pipeline (`03-cloud-deployment/production-cloud-run/`)
+
+Đọc `cloudbuild.yaml` và `service.yaml`, pipeline CI/CD trên Google Cloud đi qua **4 bước tuần tự** khi có commit mới lên nhánh `main`:
+1. **`test`:** Dùng image `python:3.11-slim` cài dependencies và chạy `pytest tests/`; nếu test fail thì pipeline dừng ngay.
+2. **`build`:** Build Docker image từ source code, gắn 2 tag (`$COMMIT_SHA` để truy vết phiên bản và `latest` để làm `--cache-from`).
+3. **`push`:** Đẩy Docker image đã gắn tag lên Google Container Registry (`gcr.io/$PROJECT_ID/ai-agent`).
+4. **`deploy`:** Gọi `gcloud run deploy` để triển khai image theo `$COMMIT_SHA` lên Cloud Run (`asia-southeast1`), cấu hình autoscaling (`min-instances=1` tránh cold start, `max-instances=10`), tài nguyên (`512Mi` RAM, `1` CPU), và nạp secret (`OPENAI_API_KEY`) an toàn từ Google Secret Manager (tương tự cơ chế `secretKeyRef` và `livenessProbe` `/health`, `startupProbe` `/ready` trong `service.yaml`).
+
+---
+
 ## AI log
 
 | Mục | Hỏi AI gì | Nhận được gì | Tự sửa & tự kiểm tra |
@@ -349,3 +377,4 @@ Kết quả chạy `python check_production_ready.py` (đầy đủ với Redis 
 | Part 4 (API Security) | Hỗ trợ cài `pyjwt` và chạy kiểm thử `develop` & `production` cho Exercise 4.1–4.4 | Chạy kiểm thử API Key, lấy JWT (`student`/`demo123`), chạy vòng lặp kích hoạt `429` và tổng hợp phần giải thích Cost Guard | Đã tự kiểm tra output thật cho cả 3 mã HTTP `401`, `200`, `429`, che JWT token trước khi ghi vào `MISSION_ANSWERS.md` |
 | Part 5 (Scaling & Reliability) | Hỗ trợ kiểm thử `develop` (`/health`, `/ready`, `SIGTERM`) và chạy Compose stack `k5-day14-scaling` (`--scale agent=3`) + `test_stateless.py` | Bật đủ 3 agent replicas + Redis + Nginx, chạy `test_stateless.py` xác nhận 5 requests chia đều cho 3 instance và giữ đủ 10 messages trong Redis | Đã tự kiểm tra `docker compose -p k5-day14-scaling ps` tất cả healthy, đối chiếu output `test_stateless.py`, rồi chạy `down` và xóa `.env.local` tạm |
 | Part 6 (Final Project) | Triển khai toàn bộ các module TODO trong `06-lab-complete/` (`config`, `auth`, `redis_client`, `rate_limiter`, `cost_guard`, `main`, `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.example`, `render.yaml`) | Hoàn thiện code đạt chuẩn production, multi-stage Docker `< 500 MB` (`297 MB`), sliding window & cost guard trên Redis | Đã chạy trực tiếp `check_production_ready.py` đầy đủ với Redis & Docker trong WSL2 và đạt `PASS 12/12` (`42/42 checks passed`) |
+| Part 3 (Cloud Deployment) | Hướng dẫn cấu hình Redis & Web Service trên Render, kiểm tra URL public, so sánh `railway.toml` vs `render.yaml` và phân tích Cloud Run CI/CD | Deploy thành công `06-lab-complete/` lên Render, tạo `DEPLOYMENT.md` và hoàn thiện mục Part 3 | Đã gọi trực tiếp `https://day14-production-agent-7rjo.onrender.com` kiểm tra `/health` (200), `/ready` (200), `/ask` không key (401) |
