@@ -1,0 +1,4 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,/health,HTTPError('502 Server Error: Bad Gateway for url: /health'),1,2026-11-26T09:57:26Z,2026-11-26T09:57:26Z
+POST,/ask,HTTPError('503 Server Error: Service Unavailable for url: /ask'),66,2026-11-26T09:57:30Z,2026-11-26T09:59:23Z
+POST,/ask,HTTPError('502 Server Error: Bad Gateway for url: /ask'),25,2026-11-26T09:57:25Z,2026-11-26T09:57:26Z
